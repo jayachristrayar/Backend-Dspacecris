@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2002-2010, DuraSpace.  All rights reserved
+    Licensed under the DuraSpace License.
+
+    A copy of the DuraSpace License has been included in this
+    distribution and is available at: http://www.dspace.org/license
+
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+           http://www.springframework.org/schema/beans/spring-beans-2.5.xsd">
+
+    <!-- Identifier Service Application Interface.  Will be autowired with
+         any Identifier Providers present in Spring context.
+    -->
+    <bean id="org.dspace.identifier.service.IdentifierService"
+          class="org.dspace.identifier.IdentifierServiceImpl"
+          autowire="byType"
+          scope="singleton">
+    </bean>
+
+    <bean id="org.dspace.identifier.HandleIdentifierProvider" class="org.dspace.identifier.VersionedHandleIdentifierProvider" scope="singleton">
+        <property name="configurationService" ref="org.dspace.services.ConfigurationService"/>
+    </bean>
+
+    <!-- provider to mint and register DOIs with DSpace.
+         To mint DOIs you need a registration agency. The DOIIdentifierProvider
+         maintains the doi database table and handling of DSpaceObject. It uses
+         a DOIConnector that handles all API calls to your DOI registration
+         agency. Please configure a DOIConnector as well! -->
+    <bean id="org.dspace.identifier.DOIIdentifierProvider"
+          class="org.dspace.identifier.DOIIdentifierProvider"
+          scope="singleton">
+        <property name="configurationService"
+                  ref="org.dspace.services.ConfigurationService"/>
+        <property name="DOIConnector"
+                  ref="org.dspace.identifier.doi.DOIConnector"/>
+    </bean>
+
+    <bean id="org.dspace.identifier.doi.DOIConnector"
+          class="org.dspace.identifier.doi.MockDataCiteConnector">
+      <property name='DATACITE_SCHEME' value='https'/>
+      <property name='DATACITE_HOST' value='mds.test.datacite.org'/>
+      <property name='DATACITE_DOI_PATH' value='/doi/'/>
+      <property name='DATACITE_METADATA_PATH' value='/metadata/'/>
+      <property name='disseminationCrosswalkByEntityType'>
+          <map>
+              <entry key="Publication" value-ref="referCrosswalkPublicationDataciteXml"></entry>
+              <entry key="Patent" value-ref="referCrosswalkPatentDataciteXml"></entry>
+              <entry key="Product" value-ref="referCrosswalkDatasetDataciteXml"></entry>
+          </map>
+      </property>
+    </bean>
+    
+    <!-- DOI Application rules -->
+
+    <!-- Namespace definition -->
+    <bean id="defaultValueNamespace" class="org.dspace.identifier.generators.FixedConfigurationValueNamespaceGenerator">
+    	<property name="configurationValue" value="${identifier.doi.namespaceseparator}" />
+    </bean>
+    
+    <bean id="unitsCustomNamespace" class="org.dspace.identifier.generators.FixedConfigurationValueNamespaceGenerator">
+    	<property name="configurationValue" value="units/custom/" />
+    </bean>
+
+    <bean id="customSeparatorNamespace" class="org.dspace.identifier.generators.MetadataValueNamespaceGenerator">
+        <constructor-arg name="postValue" value="/" />
+        <constructor-arg name="namespaceSeparator" value="${identifier.doi.namespaceseparator}" />
+        <constructor-arg name="metadataFields">
+            <set>
+                <value>dc.identifier.issn</value>
+                <value>dc.identifier.eissn</value>
+                <value>dc.identifier.isbn</value>
+                <value>dc.identifier.eisbn</value>
+            </set>
+        </constructor-arg>
+    </bean>
+    
+    
+    <!-- Below there are defined the generation strategy -->  
+    <bean id="defaultDoiGenerationStrategy" class="org.dspace.identifier.generators.ConfigurableDoiGenerationStrategy">
+    	<constructor-arg name="filter" ref="always_true_filter" />
+    	<constructor-arg name="doiNamespaceGenerator" ref="defaultValueNamespace" />
+    	<constructor-arg name="generationType" value="DEFAULT" />
+    </bean>
+    
+    <bean id="communityDoiGenerationStrategy" class="org.dspace.identifier.generators.ConfigurableDoiGenerationStrategy">
+    	<constructor-arg name="filter" ref="belongsToComm" />
+    	<constructor-arg name="doiNamespaceGenerator" ref="unitsCustomNamespace" />
+    	<constructor-arg name="generationType" value="CUSTOM" />
+    </bean>  
+      
+    <bean id="collectionDoiGenerationStrategy" class="org.dspace.identifier.generators.ConfigurableDoiGenerationStrategy">
+    	<constructor-arg name="filter" ref="belongsToColl" />
+    	<constructor-arg name="doiNamespaceGenerator" ref="customSeparatorNamespace" />
+    	<constructor-arg name="generationType" value="CUSTOM" />
+    </bean>
+
+    <bean id="inHandleCollectionGenerationStrategy" class="org.dspace.identifier.generators.ConfigurableDoiGenerationStrategy">
+        <constructor-arg name="filter" ref="belongsToInHandleColl" />
+        <constructor-arg name="doiNamespaceGenerator" ref="customSeparatorNamespace" />
+        <constructor-arg name="generationType" value="CUSTOM" />
+    </bean>
+
+</beans>
